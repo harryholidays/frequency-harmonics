@@ -14,6 +14,10 @@ type OscillatorWithGain = {
   gainNode: GainNode;
 };
 
+type WindowWithWebkit = Window & typeof globalThis & {
+  webkitAudioContext: typeof AudioContext;
+};
+
 const FrequencyVisualizer: React.FC = () => {
   const [selectedCombination, setSelectedCombination] = useState('396_528');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -54,7 +58,7 @@ const FrequencyVisualizer: React.FC = () => {
   useEffect(() => {
     // Only create AudioContext in the browser
     if (typeof window !== 'undefined') {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioContextClass = window.AudioContext || (window as WindowWithWebkit).webkitAudioContext;
       audioContextRef.current = new AudioContextClass({
         latencyHint: 'interactive',
         sampleRate: 96000
