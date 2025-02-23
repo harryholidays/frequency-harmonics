@@ -54,7 +54,8 @@ const FrequencyVisualizer: React.FC = () => {
   useEffect(() => {
     // Only create AudioContext in the browser
     if (typeof window !== 'undefined') {
-      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      audioContextRef.current = new AudioContextClass({
         latencyHint: 'interactive',
         sampleRate: 96000
       });
