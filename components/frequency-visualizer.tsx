@@ -208,4 +208,4 @@ const FrequencyVisualizer: React.FC = () => {
   );
 };
 
-export default FrequencyVisualizer;
+export { FrequencyVisualizer };
