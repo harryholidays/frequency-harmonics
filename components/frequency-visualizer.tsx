@@ -1,12 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const FrequencyVisualizer = () => {
+type FrequencyCombination = {
+  name: string;
+  frequencies: number[];
+};
+
+type FrequencyCombinations = {
+  [key: string]: FrequencyCombination;
+};
+
+type OscillatorWithGain = {
+  oscillator: OscillatorNode;
+  gainNode: GainNode;
+};
+
+const FrequencyVisualizer: React.FC = () => {
   const [selectedCombination, setSelectedCombination] = useState('396_528');
   const [isPlaying, setIsPlaying] = useState(false);
-  const audioContextRef = useRef(null);
-  const oscillatorsRef = useRef([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const oscillatorsRef = useRef<OscillatorWithGain[]>([]);
 
-  const frequencyCombinations = {
+  const frequencyCombinations: FrequencyCombinations = {
     '396_528': {
       name: 'Liberation & Love',
       frequencies: [396, 528]
@@ -38,44 +52,52 @@ const FrequencyVisualizer = () => {
   };
 
   useEffect(() => {
-    audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({
-      latencyHint: 'interactive',
-      sampleRate: 96000
-    });
-    return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-    };
+    // Only create AudioContext in the browser
+    if (typeof window !== 'undefined') {
+      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({
+        latencyHint: 'interactive',
+        sampleRate: 96000
+      });
+      
+      return () => {
+        if (audioContextRef.current) {
+          audioContextRef.current.close();
+        }
+      };
+    }
   }, []);
 
-  const frequencyToColor = (freq) => {
+  const frequencyToColor = (freq: number): string => {
     const hue = ((freq - 174) / (963 - 174)) * 360;
     return `hsl(${hue}, 100%, 50%)`;
   };
 
-  const startFrequencies = (frequencies, fadeTime = 2) => {
+  const startFrequencies = (frequencies: number[], fadeTime = 2): OscillatorWithGain[] => {
+    if (!audioContextRef.current) return [];
+    
     return frequencies.map(freq => {
-      const oscillator = audioContextRef.current.createOscillator();
-      const gainNode = audioContextRef.current.createGain();
+      const oscillator = audioContextRef.current!.createOscillator();
+      const gainNode = audioContextRef.current!.createGain();
       
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(freq, audioContextRef.current.currentTime);
+      oscillator.frequency.setValueAtTime(freq, audioContextRef.current!.currentTime);
       
-      gainNode.gain.setValueAtTime(0, audioContextRef.current.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.1, audioContextRef.current.currentTime + fadeTime);
+      gainNode.gain.setValueAtTime(0, audioContextRef.current!.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.1, audioContextRef.current!.currentTime + fadeTime);
       
       oscillator.connect(gainNode);
-      gainNode.connect(audioContextRef.current.destination);
+      gainNode.connect(audioContextRef.current!.destination);
       
       oscillator.start();
       return { oscillator, gainNode };
     });
   };
 
-  const stopFrequencies = (oscillators, fadeTime = 2) => {
+  const stopFrequencies = (oscillators: OscillatorWithGain[], fadeTime = 2): void => {
+    if (!audioContextRef.current) return;
+    
     oscillators.forEach(({ oscillator, gainNode }) => {
-      gainNode.gain.linearRampToValueAtTime(0, audioContextRef.current.currentTime + fadeTime);
+      gainNode.gain.linearRampToValueAtTime(0, audioContextRef.current!.currentTime + fadeTime);
       setTimeout(() => {
         oscillator.stop();
         oscillator.disconnect();
@@ -83,7 +105,9 @@ const FrequencyVisualizer = () => {
     });
   };
 
-  const toggleSound = () => {
+  const toggleSound = (): void => {
+    if (!audioContextRef.current) return;
+    
     if (!isPlaying) {
       const frequencies = frequencyCombinations[selectedCombination].frequencies;
       oscillatorsRef.current = startFrequencies(frequencies);
@@ -94,7 +118,7 @@ const FrequencyVisualizer = () => {
     setIsPlaying(!isPlaying);
   };
 
-  const getBlendedColor = (frequencies) => {
+  const getBlendedColor = (frequencies: number[]): string => {
     const colors = frequencies.map(f => frequencyToColor(f));
     return `linear-gradient(45deg, ${colors.join(', ')})`;
   };
@@ -104,7 +128,6 @@ const FrequencyVisualizer = () => {
       <h1 className="text-2xl font-bold mb-6">Frequency Harmonics</h1>
       
       <div className="space-y-6">
-        {/* Visualization area */}
         <div 
           className="w-full h-64 rounded-lg transition-all duration-700"
           style={{ 
@@ -113,7 +136,6 @@ const FrequencyVisualizer = () => {
           }}
         />
         
-        {/* Frequency options */}
         <div className="space-y-4">
           {Object.entries(frequencyCombinations).map(([key, { name, frequencies }]) => (
             <label 
@@ -134,7 +156,7 @@ const FrequencyVisualizer = () => {
                 checked={selectedCombination === key}
                 onChange={(e) => {
                   const newCombination = e.target.value;
-                  if (isPlaying) {
+                  if (isPlaying && audioContextRef.current) {
                     const newFrequencies = frequencyCombinations[newCombination].frequencies;
                     const newOscillators = startFrequencies(newFrequencies);
                     stopFrequencies(oscillatorsRef.current);
@@ -164,7 +186,6 @@ const FrequencyVisualizer = () => {
           ))}
         </div>
         
-        {/* Play button */}
         <button 
           onClick={toggleSound}
           className="w-full h-12 text-lg rounded-lg font-medium transition-all duration-300"
@@ -177,7 +198,6 @@ const FrequencyVisualizer = () => {
           {isPlaying ? 'Stop' : 'Play'} Harmonics
         </button>
 
-        {/* Info text */}
         <div className="text-sm text-gray-500 space-y-1">
           <p>Using high-precision frequency generation (96kHz sample rate)</p>
           <p>For best experience, use quality headphones in a quiet space</p>
@@ -188,4 +208,4 @@ const FrequencyVisualizer = () => {
   );
 };
 
-export { FrequencyVisualizer }  // Add this line
+export default FrequencyVisualizer;
